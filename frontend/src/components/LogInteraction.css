@@ -1,0 +1,111 @@
+.page{
+  display:flex;
+  height:100vh;
+  background:#f5f6f8;
+  padding:20px;
+  gap:20px;
+}
+
+/* LEFT PANEL */
+
+.leftPanel{
+  flex:2;
+  background:white;
+  padding:25px;
+  border-radius:10px;
+  overflow:auto;
+}
+
+.leftPanel h2{
+  margin-bottom:15px;
+}
+
+.row{
+  display:flex;
+  gap:20px;
+}
+
+.field{
+  display:flex;
+  flex-direction:column;
+  margin-bottom:18px;
+  flex:1;
+}
+
+.field label{
+  font-weight:600;
+  margin-bottom:6px;
+}
+
+input, select, textarea{
+  padding:10px;
+  border-radius:6px;
+  border:1px solid #ccc;
+}
+
+.saveBtn{
+  margin-top:20px;
+  padding:12px 20px;
+  background:#1976d2;
+  color:white;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+}
+
+/* RIGHT PANEL */
+
+.rightPanel{
+  flex:1;
+  background:white;
+  border-radius:10px;
+  padding:20px;
+  display:flex;
+  flex-direction:column;
+}
+
+.subtitle{
+  color:gray;
+  margin-bottom:10px;
+}
+
+.chatBox{
+  flex:1;
+  background:#f1f5f9;
+  border-radius:10px;
+  padding:15px;
+  overflow-y:auto;
+}
+
+.assistantMsg{
+  background:#dbeafe;
+  padding:10px;
+  border-radius:8px;
+  margin-bottom:10px;
+}
+
+.userMsg{
+  background:#e5e7eb;
+  padding:10px;
+  border-radius:8px;
+  margin-bottom:10px;
+  text-align:right;
+}
+
+.chatInput{
+  display:flex;
+  gap:10px;
+  margin-top:10px;
+}
+
+.chatInput input{
+  flex:1;
+}
+
+.chatInput button{
+  background:#1976d2;
+  color:white;
+  border:none;
+  border-radius:8px;
+  padding:10px 15px;
+}
