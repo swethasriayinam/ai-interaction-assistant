@@ -20,6 +20,15 @@
   margin-bottom:15px;
 }
 
+.leftPanel h4{
+  margin-top:25px;
+  margin-bottom:15px;
+  font-size:16px;
+  color:#333;
+  border-bottom:1px solid #e0e0e0;
+  padding-bottom:10px;
+}
+
 .row{
   display:flex;
   gap:20px;
@@ -30,6 +39,48 @@
   flex-direction:column;
   margin-bottom:18px;
   flex:1;
+}
+
+.fieldWithButton{
+  display:flex;
+  gap:10px;
+  margin-bottom:18px;
+  align-items:flex-start;
+}
+
+.fieldWithButton > div{
+  flex:1;
+}
+
+.fieldWithButton label{
+  font-weight:600;
+  margin-bottom:6px;
+  display:block;
+}
+
+.fieldWithButton textarea{
+  width:100%;
+  padding:10px;
+  border-radius:6px;
+  border:1px solid #ccc;
+  box-sizing:border-box;
+}
+
+.inlineBtn{
+  padding:8px 10px;
+  background:#e3f2fd;
+  border:1px solid #90caf9;
+  border-radius:6px;
+  cursor:pointer;
+  font-size:16px;
+  margin-top:26px;
+  min-width:40px;
+  transition:all 0.2s;
+}
+
+.inlineBtn:hover{
+  background:#bbdefb;
+  border-color:#64b5f6;
 }
 
 .field label{
@@ -51,6 +102,82 @@ input, select, textarea{
   border:none;
   border-radius:8px;
   cursor:pointer;
+  font-size:16px;
+  font-weight:600;
+  width:100%;
+  transition:background 0.3s;
+}
+
+.saveBtn:hover:not(:disabled){
+  background:#1565c0;
+}
+
+.saveBtn:disabled{
+  background:#ccc;
+  cursor:not-allowed;
+}
+
+.statusMessage{
+  padding:12px;
+  border-radius:8px;
+  margin-bottom:15px;
+  font-weight:500;
+  text-align:center;
+}
+
+.statusMessage.success{
+  background:#d4edda;
+  color:#155724;
+  border:1px solid #c3e6cb;
+}
+
+.statusMessage.error{
+  background:#f8d7da;
+  color:#721c24;
+  border:1px solid #f5c6cb;
+}
+
+.secondaryBtn{
+  padding:8px 12px;
+  background:#f0f0f0;
+  border:1px solid #ccc;
+  border-radius:6px;
+  cursor:pointer;
+  margin-top:8px;
+  font-size:13px;
+}
+
+.secondaryBtn:hover{
+  background:#e0e0e0;
+}
+
+.sentimentGroup{
+  display:flex;
+  gap:25px;
+  margin-bottom:18px;
+}
+
+.radioLabel{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-weight:normal;
+  cursor:pointer;
+}
+
+.radioLabel input{
+  width:18px;
+  height:18px;
+  cursor:pointer;
+  padding:0;
+  margin:0;
+  border:none;
+}
+
+.emptyText{
+  color:#999;
+  font-size:14px;
+  margin:10px 0;
 }
 
 /* RIGHT PANEL */
@@ -100,6 +227,50 @@ input, select, textarea{
 
 .chatInput input{
   flex:1;
+  padding:10px;
+  border-radius:6px;
+  border:1px solid #ccc;
+}
+
+.chatInput button{
+  padding:10px 16px;
+  background:#1976d2;
+  color:white;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+  font-weight:600;
+}
+
+.voiceBtn{
+  padding:10px 12px;
+  background:#f0f0f0;
+  border:1px solid #ddd;
+  color:#333;
+  border-radius:6px;
+  cursor:pointer;
+  font-size:16px;
+  transition:all 0.2s;
+  min-width:45px;
+}
+
+.voiceBtn:hover{
+  background:#e0e0e0;
+}
+
+.voiceBtn.recording{
+  background:#ffcdd2;
+  border-color:#f44336;
+  animation:pulse 1s infinite;
+}
+
+@keyframes pulse{
+  0%, 100% { opacity:1; }
+  50% { opacity:0.7; }
+}
+
+.chatInput input{
+  flex:1;
 }
 
 .chatInput button{
@@ -109,3 +280,4 @@ input, select, textarea{
   border-radius:8px;
   padding:10px 15px;
 }
+

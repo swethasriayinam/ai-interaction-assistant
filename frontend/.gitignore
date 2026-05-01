@@ -55,3 +55,19 @@ frontend/node_modules/
 # System
 .DS_Store
 Thumbs.db
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment
+.env
+
+# Database
+*.db
+
+# Node modules (optional if frontend exists)
+node_modules/
+
+# Logs
+*.log

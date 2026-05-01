@@ -1,52 +1,84 @@
-from datetime import date
 import json
-from tools import llm   # ✅ IMPORTANT FIX
+import re
+from tools import llm
 
 
-async def extract_interaction(text: str):
+def safe_json_parse(text: str):
+    """
+    Extracts JSON from LLM output safely.
+    Handles markdown, bad formatting, etc.
+    """
+
+    # remove ```json blocks if present
+    text = text.strip()
+    text = re.sub(r"```json|```", "", text)
+
+    try:
+        return json.loads(text)
+    except Exception:
+        return None
+
+
+def normalize(value):
+    """Convert list → string safely"""
+    if isinstance(value, list):
+        return ", ".join(value)
+    return value or ""
+
+
+async def extract_interaction(message: str):
 
     prompt = f"""
-You are a Medical CRM AI assistant.
-
-Extract structured interaction data.
+You are a STRICT CRM intent classifier.
 
 Return ONLY valid JSON.
 
-Rules:
-- Detect doctor names like "Dr. Rao", "Dr Rao", "Doctor Rao"
-- If meeting implied → interaction_type = "Meeting"
-- If today mentioned → use {date.today()}
-- Infer outcome:
-  good discussion → Positive
-  normal discussion → Neutral
-  problem → Negative
+RULES:
+- No explanations
+- No markdown
+- No backticks
 
-Fields:
-hcp_name
-interaction_type
-date
-topics
-outcome
-notes
+INTENTS:
+create, update, fetch, email, next_action
 
-Text:
-{text}
+RULES:
+- met/discussed/saw → create
+- update/change → update
+- show/details/history → fetch
+- write email/follow up email → email
+- what should I do next → next_action
+
+OUTPUT FORMAT:
+{{
+  "intent": "",
+  "hcp_name": "",
+  "topics": "",
+  "outcome": "",
+  "notes": ""
+}}
+
+Message:
+{message}
 """
 
-    response = await llm.ainvoke(prompt)
+    res = await llm.ainvoke(prompt)
 
-    try:
-        cleaned = (
-            response.content
-            .replace("```json", "")
-            .replace("```", "")
-            .strip()
-        )
+    data = safe_json_parse(res.content)
 
-        data = json.loads(cleaned)
+    if not data:
+        return {
+            "intent": "create",
+            "hcp_name": "",
+            "topics": "",
+            "outcome": "",
+            "notes": message
+        }
 
-    except Exception as e:
-        print("Extraction error:", e)
-        data = {}
-
-    return data
+    # 🔥 FORCE CLEAN TYPES (THIS FIXES YOUR BUGS)
+    return {
+        "intent": data.get("intent", "create"),
+        "hcp_name": normalize(data.get("hcp_name")),
+        "topics": normalize(data.get("topics")),
+        "outcome": normalize(data.get("outcome")),
+        "notes": normalize(data.get("notes", message))
+    }

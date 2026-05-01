@@ -1,39 +1,18 @@
-from fastapi import FastAPI, Depends
-from datetime import datetime
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, insert
-from pydantic import BaseModel, ConfigDict
 
 import models
 import database
 from extractor import extract_interaction
+from tools import (
+    get_hcp_details,
+    edit_interaction,
+    generate_followup_email,
+    suggest_next_action
+)
 
 app = FastAPI()
-
-# ====================== REQUEST MODELS ======================
-
-class ChatRequest(BaseModel):
-    message: str
-
-
-class LogInteractionRequest(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    hcp_name: str
-    interaction_type: str | None = None
-    date: str | None = None
-    time: str | None = None
-    attendees: str | None = None
-    topics: str | None = None
-    materials_shown: str | None = None
-    samples_distributed: str | None = None
-    outcome: str | None = None
-    follow_up: str | None = None
-    notes: str | None = None
-
-
-# ====================== CORS ======================
 
 app.add_middleware(
     CORSMiddleware,
@@ -43,122 +22,110 @@ app.add_middleware(
 )
 
 
-# ====================== STARTUP ======================
+def calculate_score(data):
+    score = 50
 
-@app.on_event("startup")
-async def startup():
-    async with database.engine.begin() as conn:
-        await conn.run_sync(models.Base.metadata.create_all)
+    outcome = (data.get("outcome") or "").lower()
+    topics = (data.get("topics") or "").lower()
 
+    if "positive" in outcome or "interested" in outcome:
+        score += 25
+    elif "negative" in outcome or "not interested" in outcome:
+        score -= 25
 
-# ====================== CHAT ======================
+    if "diabetes" in topics:
+        score += 10
+
+    return max(0, min(100, score))
+
 
 @app.post("/chat")
-async def chat(data: ChatRequest):
+async def chat(data: dict):
 
-    print("User Message:", data.message)
+    extracted = await extract_interaction(data["message"])
 
-    extracted = await extract_interaction(data.message)
+    if not extracted.get("hcp_name"):
+        return {"response": "Could not detect HCP name"}
 
-    print("AI Extracted Data:", extracted)
+    intent = extracted.get("intent", "create")
 
-    # Prevent empty extraction
-    if not extracted or not extracted.get("hcp_name"):
-        return {
-            "response": "I couldn't identify the doctor name. Please try again.",
-            "extracted_data": {}
-        }
+
+    # ================= FETCH =================
+    if intent == "fetch":
+        result = await get_hcp_details.ainvoke({
+            "hcp_name": extracted["hcp_name"]
+        })
+
+        if isinstance(result, dict):
+            return {
+                "response": f"""
+HCP: {result['hcp_name']}
+Topics: {result['topics']}
+Outcome: {result['outcome']}
+Last Interaction Type: {result['interaction_type']}
+""",
+                "extracted_data": extracted
+            }
+
+        return {"response": result, "extracted_data": extracted}
+
+
+    # ================= UPDATE =================
+    if intent == "update":
+        result = await edit_interaction.ainvoke({
+            "hcp_name": extracted["hcp_name"],
+            "updates": extracted
+        })
+
+        return {"response": result, "extracted_data": extracted}
+
+
+    # ================= EMAIL =================
+    if intent == "email":
+        result = await generate_followup_email.ainvoke({
+            "hcp_name": extracted["hcp_name"],
+            "topics": extracted.get("topics", "")
+        })
+
+        return {"response": result, "extracted_data": extracted}
+
+
+    # ================= NEXT ACTION =================
+    score = calculate_score(extracted)
+
+    context = f"""
+HCP: {extracted['hcp_name']}
+Topics: {extracted.get('topics')}
+Outcome: {extracted.get('outcome')}
+Score: {score}
+"""
+
+    suggestion = await suggest_next_action.ainvoke({
+        "hcp_context": context
+    })
 
     return {
-        "response": "Interaction extracted successfully",
+        "response": suggestion,
+        "score": score,
         "extracted_data": extracted
     }
 
-# ====================== LOG INTERACTION ======================
 
 @app.post("/log-interaction")
-async def log_interaction(
-    data: LogInteractionRequest,
-    db: AsyncSession = Depends(database.get_db)
-):
+async def log_interaction(data: dict, db: AsyncSession = Depends(database.get_db)):
 
-    # ==============================
-    # DEBUG → CHECK WHAT FRONTEND SENDS
-    # ==============================
-    print("\n===== INTERACTION RECEIVED =====")
-    print(data)
-    print("===============================\n")
+    if not data.get("hcp_name"):
+        raise HTTPException(400, "HCP name required")
 
-    # ❌ Prevent empty interaction saving
-    if not data.hcp_name or data.hcp_name.strip() == "":
-        raise HTTPException(
-            status_code=400,
-            detail="HCP name is required"
-        )
-
-    parsed_date = None
-    parsed_time = None
-
-    # ==============================
-    # SAFE DATE PARSING
-    # ==============================
-    if data.date and data.date != "string":
-        try:
-            parsed_date = datetime.strptime(
-                data.date,
-                "%Y-%m-%d"
-            ).date()
-        except Exception:
-            print("Invalid date format received")
-
-    # ==============================
-    # SAFE TIME PARSING
-    # ==============================
-    if data.time and data.time != "string":
-        try:
-            parsed_time = datetime.strptime(
-                data.time,
-                "%H:%M"
-            ).time()
-        except Exception:
-            print("Invalid time format received")
-
-    # ==============================
-    # INSERT INTO DATABASE
-    # ==============================
-    stmt = insert(models.Interaction).values(
-        hcp_name=data.hcp_name.strip(),
-        interaction_type=data.interaction_type or "Meeting",
-        date=parsed_date,
-        time=parsed_time,
-        attendees=data.attendees or "",
-        topics=data.topics or "",
-        materials_shown=data.materials_shown or "",
-        samples_distributed=data.samples_distributed or "",
-        outcome=data.outcome or "Neutral",
-        follow_up=data.follow_up or "",
-        notes=data.notes or ""
+    new = models.Interaction(
+        hcp_name=data["hcp_name"],
+        interaction_type=data.get("interaction_type", "Meeting"),
+        topics=data.get("topics", ""),
+        outcome=data.get("outcome", "Neutral"),
+        notes=data.get("notes", "")
     )
 
-    await db.execute(stmt)
+    db.add(new)
     await db.commit()
 
-    print("✅ Interaction saved successfully")
-
-    return {
-        "message": "Interaction saved successfully"
-    }
-# ====================== INSIGHTS ======================
-
-@app.get("/insights")
-async def insights(db: AsyncSession = Depends(database.get_db)):
-    result = await db.execute(select(func.count(models.Interaction.id)))
-    return {"total": result.scalar()}
-
-
-# ====================== GET ALL ======================
-
-@app.get("/interactions")
-async def get_interactions(db: AsyncSession = Depends(database.get_db)):
-    result = await db.execute(select(models.Interaction))
-    return result.scalars().all()
+    return {"message": "saved"}

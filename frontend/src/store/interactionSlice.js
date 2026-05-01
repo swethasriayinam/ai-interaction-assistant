@@ -23,15 +23,18 @@ export const postChat = createAsyncThunk(
 
 export const logInteraction = createAsyncThunk(
   "interaction/log",
-  async (payload) => {
+  async (payload, { rejectWithValue }) => {
 
-    const res = await axios.post(
-      `${API_BASE}/log-interaction`,
-      payload
-    );
+    try {
+      const res = await axios.post(
+        `${API_BASE}/log-interaction`,
+        payload
+      );
 
-    alert("✅ Interaction Logged Successfully!");
-    return res.data;
+      return res.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.detail || error.message);
+    }
   }
 );
 
@@ -56,22 +59,27 @@ const interactionSlice = createSlice({
       type: "Meeting",
       date: "",
       time: "",
+      attendees: "",
       topics: "",
-      materials: [],
-      samples: [],
-      outcome: "Neutral",
-      followUp: ""
+      materialsShared: "",
+      samplesDistributed: "",
+      sentiment: "neutral",
+      outcome: "",
+      followUp: "",
+      notes: ""
     },
 
     chatHistory: [
       {
         role: "assistant",
         content:
-          "Describe the interaction and I will fill the form automatically."
+          "Log interaction details here (e.g., \"Met Dr. Smith, discussed product X efficiency, positive sentiment, shared brochure\") or ask for help."
       }
     ],
 
-    insights: { total: 0 }
+    insights: { total: 0 },
+    loading: false,
+    error: null
   },
 
   /* ================= REDUCERS ================= */
@@ -94,6 +102,24 @@ const interactionSlice = createSlice({
         role: "user",
         content: action.payload
       });
+    },
+
+    // ✅ CLEAR FORM AFTER LOGGING
+    resetFormData: (state) => {
+      state.formData = {
+        hcpName: "",
+        type: "Meeting",
+        date: "",
+        time: "",
+        attendees: "",
+        topics: "",
+        materialsShared: "",
+        samplesDistributed: "",
+        sentiment: "neutral",
+        outcome: "",
+        followUp: "",
+        notes: ""
+      };
     }
   },
 
@@ -108,7 +134,7 @@ const interactionSlice = createSlice({
         // assistant reply
         state.chatHistory.push({
           role: "assistant",
-          content: action.payload.response
+          content: action.payload.response || "No response"
         });
 
         const data = action.payload.extracted_data;
@@ -134,6 +160,25 @@ const interactionSlice = createSlice({
           state.formData.followUp = data.follow_up;
       })
 
+      /* ===== LOG INTERACTION PENDING ===== */
+      .addCase(logInteraction.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+
+      /* ===== LOG INTERACTION SUCCESS ===== */
+      .addCase(logInteraction.fulfilled, (state, action) => {
+        state.loading = false;
+        state.error = null;
+        // Form will be reset by the component
+      })
+
+      /* ===== LOG INTERACTION ERROR ===== */
+      .addCase(logInteraction.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || "Failed to log interaction";
+      })
+
       /* ===== INSIGHTS ===== */
       .addCase(fetchInsights.fulfilled, (state, action) => {
         state.insights = action.payload;
@@ -146,7 +191,8 @@ const interactionSlice = createSlice({
 export const {
   updateField,
   addListItem,
-  addUserMessage
+  addUserMessage,
+  resetFormData
 } = interactionSlice.actions;
 
 export default interactionSlice.reducer;
